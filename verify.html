@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Verify Matthew James Keller</title>
+  <meta charset="utf-8" />
+</head>
+<body>
+  <h2>Verify Signature of Matthew James Keller</h2>
+
+  <p>Enter the challenge (random string) and the base64 signature:</p>
+
+  <label>Challenge:</label><br>
+  <input id="challenge" type="text" size="60" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"><br><br>
+
+  <label>Signature (Base64):</label><br>
+  <textarea id="signature" rows="4" cols="60" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"></textarea><br><br>
+
+  <button onclick="verify()">Verify Signature</button>
+
+  <p id="result" style="font-weight:bold;"></p>
+
+  <script>
+    const publicKeyPem = `
+-----BEGIN PUBLIC KEY-----
+MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAvv0uQVj7UJ/4g0VbzJxs
+tBzv8zLnFFbQH5fjvUt/dZv4oH9ztJJrI+SVFy7h3oQBkEjSvvRw3dLcbnCDDXzR
+lwYdWPoR/kfLTr+ziX9p/7oSSZkR68Wk0AG2y1GzvQ+PYi2W3KvAlJXKu6pz4XK0
+eSGrL+wTqzPjxTfDTCcIZzwz48Vk6m48rh+dh1eHZQKPcZ9RWlU2W1ZKXxglM7SU
+T6UMCsQmPYh2Hw1D9Qf7gP7Ql0H0i0PZ7hZBYOjxcyysA6Mr7YBl91Xm2+ck3eLO
+jJtS4lnld9j/2wH1he/Rf5dC5rEbQDl6+oIG1t/NXVeejV6KiYmPkR9P3qA79+jf
+jwIDAQAB
+-----END PUBLIC KEY-----
+`.trim();
+
+    async function verify() {
+      const challenge = document.getElementById("challenge").value.trim();
+      const signatureB64 = document.getElementById("signature").value.trim();
+      const result = document.getElementById("result");
+
+      if (!challenge || !signatureB64) {
+        result.textContent = "⚠️ Please enter both challenge and signature.";
+        result.style.color = "red";
+        return;
+      }
+
+      try {
+        const encoder = new TextEncoder();
+        const data = encoder.encode(challenge);
+        const sig = Uint8Array.from(atob(signatureB64), c => c.charCodeAt(0));
+
+        const key = await window.crypto.subtle.importKey(
+          "spki",
+          pemToArrayBuffer(publicKeyPem),
+          { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" },
+          false,
+          ["verify"]
+        );
+
+        const isValid = await window.crypto.subtle.verify(
+          "RSASSA-PKCS1-v1_5",
+          key,
+          sig,
+          data
+        );
+
+        if (isValid) {
+          result.textContent = "✅ Signature is VALID. Identity confirmed.";
+          result.style.color = "green";
+        } else {
+          result.textContent = "❌ Invalid signature. Cannot verify.";
+          result.style.color = "red";
+        }
+      } catch (e) {
+        result.textContent = "❌ Error verifying signature. Check inputs.";
+        result.style.color = "red";
+        console.error(e);
+      }
+    }
+
+    function pemToArrayBuffer(pem) {
+      const b64 = pem
+        .replace(/-----BEGIN PUBLIC KEY-----/, '')
+        .replace(/-----END PUBLIC KEY-----/, '')
+        .replace(/\s/g, '');
+      const binary = atob(b64);
+      const len = binary.length;
+      const bytes = new Uint8Array(len);
+      for (let i = 0; i < len; i++) {
+        bytes[i] = binary.charCodeAt(i);
+      }
+      return bytes.buffer;
+    }
+  </script>
+</body>
+</html>
